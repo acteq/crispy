@@ -6,7 +6,7 @@ import (
 	"os"
     "net"
 	"time"
-	"./protocol"
+	"tower-crane/protocol"
 )
 
 // sockopt设置接口
@@ -19,7 +19,8 @@ import (
 // 标准TCP层协议里把对方超时设为2小时，若服务器端超过了2小时还没收到客户的信息，它就发送探测报文段，若发送了10个探测报文段（每一个相隔75S）还没有收到响应，就假定客户出了故障，并终止这个连接。因此应对tcp长连接进行保活。
 
 func init()  {
-	log.SetOutput(os.Stdout)	
+    log.SetOutput(os.Stdout)
+    log.SetFlags(log.Llongfile)	
 }
 
 const PORT = 21579
@@ -49,18 +50,20 @@ func main() {
 func handleConn(c net.Conn) {
 	defer c.Close()
 
-	tcpConn, ok := c.(*TCPConn)
+	tcpConn, ok := c.(*net.TCPConn)
 	if !ok {
 		//error handle
 	}
 
 	tcpConn.SetNoDelay(true)
-	
+    
 	// read from the connection
-	var bufRead = make([]byte, 65536)
+    var bufRead = make([]byte, 65536)
+    var left = 0
     for {
-        c.SetReadDeadline(time.Now().Add(time.Microsecond * 10))
-        n, err := c.Read(bufRead)
+        // var bufRead = buf
+        c.SetReadDeadline(time.Now().Add(time.Second * 300))
+        n, err := c.Read(bufRead[left:])
         if err != nil {
             log.Printf("conn read %d bytes,  error: %s", n, err)
             if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
@@ -68,23 +71,29 @@ func handleConn(c net.Conn) {
             }
             return
         }
-		log.Printf("read %d bytes, content is %s\n", n, string(bufRead[:n]))
-        consumed , message, err := protocol.Unpack(bufRead[:n])
-        if err != nil {
-            continue
+        // log.Printf("read %d bytes, content is %s\n", n, protocol.BytetoH(bufRead[:n]))
+        consumed, messages := protocol.Unpack(bufRead[:left + n])
+        if left + n - consumed > 0 {
+            log.Printf("last %d bytes, received %d bytes, consumed %d bytes, left %d bytes, messages %d\n", left, n, consumed, left + n - consumed, len(messages))
+            log.Printf("last data %s\n", protocol.BytetoH(bufRead[:left]))
+            log.Printf("received data:%s\n", protocol.BytetoH(bufRead[left: left + n]))
+            log.Printf("left data:%s\n", protocol.BytetoH(bufRead[consumed:left + n]))
+            copy(bufRead, bufRead[consumed:left + n])
         }
-        resp := protocol.HandleMessage(message)
-        if resp == nil {
-            continue
+        left = left + n - consumed
+        for _, message := range messages {
+            resp := protocol.HandleMessage(message)
+            if resp == nil {
+                continue
+            }
+            packed := protocol.Pack(resp)
+            n, err = c.Write(packed)
+            if err != nil {
+                log.Println("conn write error:", err)
+            } else {
+                log.Printf("write %d bytes: %s\n", n, protocol.BytetoH(packed[:n]))
+            }
         }
-
-        n, err = c.Write(resp)
-        if err != nil {
-            log.Println("conn write error:", err)
-        } else {
-            log.Printf("write %d bytes, content is %s\n", n, string(resp[:n]))
-        }
-        
     }
 }
 

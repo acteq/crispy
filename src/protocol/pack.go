@@ -1,16 +1,15 @@
 package protocol
 
 import (
-	"errors"
-	"fmt"
+	"log"
 )
 
-const FrameFlag0 byte = 0xA5
-const FrameFlag1 byte = 0x5A
-const FrameTailFlag0 byte = 0xCC   
-const FrameTailFlag1 byte = 0x33
-const FrameTailFlag2 byte = 0xC3
-const FrameTailFlag3 byte = 0x3C
+const HeadFlag0 byte = 0xA5
+const HeadFlag1 byte = 0x5A
+const TailFlag0 byte = 0xCC   
+const TailFlag1 byte = 0x33
+const TailFlag2 byte = 0xC3
+const TailFlag3 byte = 0x3C
 
 type DataFrame struct {
 	head uint16
@@ -34,63 +33,68 @@ type DataFrameTail struct {
 	length byte
 	tailFlag uint32
 }
+
 /**
 * 分割数据并交由数据处理类处理
 * 设备发送的数据可能会以a55a000000...cc33c33ca55a010000...cc的形式粘连，需要切割。
 * @param os
 * @param data
 */
-func  Unpack(data []byte) (consumed int, message []byte, err error) {
-	var length = len(data)
-	if length < 13 {
-		err = errors.New("size too small")
-		return 
+func  Unpack(data []byte) (consumed int, messages [][]byte ) {
+	const HEAD_LEN = 2
+	const TAIL_LEN = 4
+	var heads = []int{}
+	var tails = []int{}
+	
+	var i int
+	for i=0; i < len(data) - TAIL_LEN + 1;  {
+		if ( data[i] == HeadFlag0 && data[i+1] == HeadFlag1) {
+			heads = append(heads, i)
+			i += HEAD_LEN
+			consumed = i 
+			continue
+		}
+		if ( data[i] == TailFlag0 && data[i+1] == TailFlag1 && data[i+2] == TailFlag2 && data[i+3] == TailFlag3 ) {
+			tails = append(tails, i)
+			i += TAIL_LEN
+			consumed = i
+			continue
+		}
+		i++
 	}
-	if ( data[0] != FrameFlag0 || data[1] != FrameFlag1) {
-		err = errors.New("error head")
-		return
-	}
-
-	//get craneId, deviceId
-
-	//search the end
-	const StartOfSearch = 7
-	const LengthOfTail = 4
-	var i  = StartOfSearch
-	var found = false
-
-	for ; (i + LengthOfTail - 1) <= length  ; i++ {
-		if ( data[i] == FrameTailFlag0 && data[i+1] == FrameTailFlag1 && data[i+2] == FrameTailFlag2 && data[i+3] == FrameTailFlag3 ) {
-			found = true
-			break	
+	// log.Printf("unpack %d bytes, loop i=%d, cosumed %d\n", len(data), i, consumed)
+// a55a0c0590fae201130c1c0c1530110000000008950000000005dc0000000065191621cc33c33c
+	headsIndex := 0
+	headsLen := len(heads)
+	for _, pos := range tails {
+		pairedHead := -1
+		for ; headsIndex < headsLen && heads[headsIndex] < pos ; headsIndex ++ {
+			pairedHead = heads[headsIndex]
+		}
+		if pairedHead >=0 {
+			checksum := data[pos-2]
+			if checksum == countChecksum(data[pairedHead: pos -2]) {
+				message := data[pairedHead + HEAD_LEN : pos -2] 
+				messages = append(messages, message)
+            }else{
+                log.Printf("checksum(%x) error for data frame:%s\n", checksum, BytetoH(data[pairedHead: pos + TAIL_LEN] ))
+			}
 		}
 	}
-
-	if !found {
-		err = errors.New("not found the tail")
-		fmt.Printf("%d, %X%X%X%X%X\n", i, data[i-1], data[i], data[i+1], data[i+2] , data[i+3] )
-	}
 	
-	consumed = i + LengthOfTail + 1
-	message = data[ 2 : i -2]
-
-	//比对校验和
-	var frame_checksum = data[i-2];
-
-	if( frame_checksum != countChecksum(data[:length-6]) ){
-		err = errors.New("checksum error")
+	// data frame is broken or uncompleted, left one byte
+	if consumed == 0 {
+		consumed = len(data) - HEAD_LEN + 1
 	}
-	
-	return
+	return consumed, messages
 }
-
 
 func Pack(message []byte) []byte {
 	var bodyLength = byte(len(message))
 	var result = make([]byte, 2, bodyLength + 2 + 1 + 1 + 4 )
 	//帧头 a55a
-	result[0] = FrameFlag0
-	result[1] = FrameFlag1
+	result[0] = HeadFlag0
+	result[1] = HeadFlag1
 
 	result = append(result, message...)
 
@@ -105,6 +109,13 @@ func Pack(message []byte) []byte {
 
 }
 
+func CompareChecksum(frame []byte) bool {
+	length := len(frame)
+	//比对校验和
+	var checksum = frame[length-6]
+
+	return  checksum == countChecksum(frame[:length-6])
+}
 
 /**
 * 计算校验和

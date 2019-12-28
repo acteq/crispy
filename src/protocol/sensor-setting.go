@@ -3,6 +3,7 @@ package protocol
 import (
 	// "errors"
 	"encoding/binary"
+	"log"
 )
 
 const (
@@ -13,175 +14,244 @@ const (
 
 func init() {
 	if _, ok := msgHanlders[MsgSensorSetting]; ok == true {
-        
+        log.Printf("can't add function sensorSettingHandle, the key %2X has exits\n", MsgSensorSetting)   
     } else {
         msgHanlders[MsgSensorSetting] = sensorSettingHandle
 	}
 	
 	if _, ok := msgHanlders[MsgAlramSetting]; ok == true {
-        
-		} else {
+        log.Printf("can't add function alarmSettingHandle, the key %2X has exits\n", MsgAlramSetting)   
+	} else {
 			msgHanlders[MsgAlramSetting] = alarmSettingHandle
 	}
 	if _, ok := msgHanlders[MsgThresholdSetting]; ok == true {
-	
+		log.Printf("can't add function thresholdSettingHandle, the key %2X has exits\n", MsgThresholdSetting)   
 	} else {
 			msgHanlders[MsgThresholdSetting] = thresholdSettingHandle
 	}	
 }
 
+type SensorSetting struct {
+	towerCraneId byte
+	deviceId string
+	proximal_amplitude_demarcate_AD uint16
+	proximal_amplitude_demarcate_actual uint16
+	remote_service_demarcate_AD uint16
+	remote_service_demarcate_actual uint16
+	proximal_height_demarcate_AD uint16
+	proximal_height_demarcate_actual uint16
+	remoteHeightDemarcateAD uint16
+	remote_height_demarcate_actual uint16
+	noLoad_weight_AD uint16
+	noLoad_weight_actual uint16
+	load_weight_AD uint16
+	load_weight_actual uint16
+	rotation_starting_point_AD uint16
+	rotation_starting_point_actual uint16
+	rotationEndinigPointAD uint16
+	rotation_endinig_point_actual uint16
+
+	windSpeedCalibration uint16
+
+	tilt_the_calibration uint16
+}
 func sensorSettingHandle(msg []byte) (resp []byte) {
+	if len(msg) < 53 {
+		log.Printf("incorrect message: %s\n", BytetoH(msg))
+		return nil
+	}
+	setting := SensorSetting {}
 	//塔吊编号
-	towerCraneId := msg[0];
+	setting.towerCraneId = msg[1];
 	//设备编号 
-	deviceId := msg[1:4]
+	setting.deviceId = BytetoH(msg[2:5])
 	
 	// .setProximal_amplitude_demarcate_AD( new BigDecimal(getShort(msg[7], msg[8])&0xFFFF) );
-	proximal_amplitude_demarcate_AD := binary.BigEndian.Uint16(msg[7:])
+	setting.proximal_amplitude_demarcate_AD = binary.BigEndian.Uint16(msg[5:])
 
 	// .setProximal_amplitude_demarcate_actual( new BigDecimal(getShort(msg[9], msg[10])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	proximal_amplitude_demarcate_actual := binary.BigEndian.Uint16(msg[9:])
+	setting.proximal_amplitude_demarcate_actual = binary.BigEndian.Uint16(msg[7:])
 
 	// .setRemote_service_demarcate_AD( new BigDecimal(getShort(msg[11], msg[12])&0xFFFF) );
-	remote_service_demarcate_AD := binary.BigEndian.Uint16(msg[11:])
+	setting.remote_service_demarcate_AD = binary.BigEndian.Uint16(msg[9:])
 
 	// .setRemote_service_demarcate_actual( new BigDecimal(getShort(msg[13], msg[14])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	remote_service_demarcate_actual := binary.BigEndian.Uint16(msg[13:])
+	setting.remote_service_demarcate_actual = binary.BigEndian.Uint16(msg[11:])
 
 	// .setProximal_height_demarcate_AD( new BigDecimal(getShort(msg[15], msg[16])&0xFFFF) );
-	proximal_height_demarcate_AD := binary.BigEndian.Uint16(msg[15:])
+	setting.proximal_height_demarcate_AD = binary.BigEndian.Uint16(msg[13:])
 
 	// .setProximal_height_demarcate_actual( new BigDecimal(getShort(msg[17], msg[18])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	proximal_height_demarcate_actual := binary.BigEndian.Uint16(msg[17:])
+	setting.proximal_height_demarcate_actual = binary.BigEndian.Uint16(msg[15:])
 
 	// .setRemote_height_demarcate_AD( new BigDecimal(getShort(msg[19], msg[20])&0xFFFF) );
-	remoteHeightDemarcateAD := binary.BigEndian.Uint16(msg[19:])
+	setting.remoteHeightDemarcateAD = binary.BigEndian.Uint16(msg[17:])
 
 	// .setRemote_height_demarcate_actual( new BigDecimal(getShort(msg[21], msg[22])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	remote_height_demarcate_actual := binary.BigEndian.Uint16(msg[21:])
+	setting.remote_height_demarcate_actual = binary.BigEndian.Uint16(msg[19:])
 
 	// .setNoLoad_weight_AD( new BigDecimal(getShort(msg[23], msg[24])&0xFFFF) );
-	noLoad_weight_AD := binary.BigEndian.Uint16(msg[23:])
+	setting.noLoad_weight_AD = binary.BigEndian.Uint16(msg[21:])
 
 	// .setNoLoad_weight_actual( new BigDecimal(getShort(msg[25], msg[26])&0xFFFF) );
-	noLoad_weight_actual := binary.BigEndian.Uint16(msg[25:])
+	setting.noLoad_weight_actual = binary.BigEndian.Uint16(msg[23:])
 
 	// .setLoad_weight_AD( new BigDecimal(getShort(msg[27], msg[28])&0xFFFF) );
-	load_weight_AD := binary.BigEndian.Uint16(msg[27:])
+	setting.load_weight_AD = binary.BigEndian.Uint16(msg[25:])
 
 	// 原始代码有错，把实际重量放到空载重量中去了
 	// .setNoLoad_weight_actual( new BigDecimal(getShort(msg[29], msg[30])&0xFFFF) );
-	load_weight_actual := binary.BigEndian.Uint16(msg[29:])
+	setting.load_weight_actual = binary.BigEndian.Uint16(msg[27:])
 	
 	// .setRotation_starting_point_AD( new BigDecimal(getShort(msg[31], msg[32])&0xFFFF) );
-	rotation_starting_point_AD := binary.BigEndian.Uint16(msg[31:])
+	setting.rotation_starting_point_AD = binary.BigEndian.Uint16(msg[29:])
 
 	// .setRotation_starting_point_actual( new BigDecimal(getShort(msg[33], msg[34])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	rotation_starting_point_actual := binary.BigEndian.Uint16(msg[33:])
+	setting.rotation_starting_point_actual = binary.BigEndian.Uint16(msg[31:])
 
 	// .setRotation_endinig_point_AD( new BigDecimal(getShort(msg[35], msg[36])&0xFFFF) );
-	rotationEndinigPointAD := binary.BigEndian.Uint16(msg[35:])
+	setting.rotationEndinigPointAD = binary.BigEndian.Uint16(msg[33:])
 	
 	// .setRotation_endinig_point_actual( new BigDecimal(getShort(msg[37], msg[38])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	rotation_endinig_point_actual := binary.BigEndian.Uint16(msg[37:])
+	setting.rotation_endinig_point_actual = binary.BigEndian.Uint16(msg[35:])
 	
 	// .setWind_speed_calibration( new BigDecimal(getShort(msg[39], msg[40])&0xFFFF) );
 	//风速校准系数（2byte）
-	windSpeedCalibration := binary.BigEndian.Uint16(msg[39:])
+	setting.windSpeedCalibration = binary.BigEndian.Uint16(msg[37:])
 	
 	// .setTilt_the_calibration( new BigDecimal(getShort(msg[47], msg[48])&0xFFFF) );
 	//倾斜校准系数（2byte）
-	tilt_the_calibration := binary.BigEndian.Uint16(msg[47:])
+	setting.tilt_the_calibration = binary.BigEndian.Uint16(msg[45:])
 	
-	sensorSetting()
+	reportSensorSetting(setting)
 
 	return nil
 }
 
-func sensorSetting()  {
+func reportSensorSetting(setting SensorSetting)  {
+	log.Printf("sensor setting:%+v\n", setting)
 	
 }
 
 
-
-func alarmSettingHandle(msg []byte) (resp []byte) {
+type AlarmSetting struct {
 	//塔吊编号
-	towerCraneId := msg[0];
-	//设备编号 
-	deviceId := msg[1:4]
+	towerCraneId byte
+	deviceId string
+	horizontal_distance uint16
+	perpendicular_distance uint16
+	weight_distance uint16
+	torque uint16
+	windSpeed uint16
+	alarmTilt uint16
+	warningHorizontalDistance uint16
+	warningPerpendicularDistance uint16
+	warningWeightPercentage uint16
+	warningTorque uint16
+	warningWindSpeed uint16
+	warningTilt uint16
 
+}
+func alarmSettingHandle(msg []byte) (resp []byte) {
+	if len(msg) < 29 {
+		log.Printf("incorrect message: %s\n", BytetoH(msg))
+		return nil
+	}
+	setting := AlarmSetting{}
+	//塔吊编号
+	setting.towerCraneId = msg[1];
+	//设备编号 
+	setting.deviceId = BytetoH(msg[2:5])
 
 	// .setAlarm_horizontal_distance( new BigDecimal(getShort(msg[7], msg[8])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	horizontal_distance := binary.BigEndian.Uint16(msg[7:])
+	setting.horizontal_distance = binary.BigEndian.Uint16(msg[5:])
 	
 	// .setAlarm_perpendicular_distance( new BigDecimal(getShort(msg[9], msg[10])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	perpendicular_distance := binary.BigEndian.Uint16(msg[9:])
+	setting.perpendicular_distance = binary.BigEndian.Uint16(msg[7:])
 	
 	// .setAlarm_weight_distance( new BigDecimal(getShort(msg[11], msg[12])&0xFFFF) );
-	weight_distance := binary.BigEndian.Uint16(msg[11:])
+	setting.weight_distance = binary.BigEndian.Uint16(msg[9:])
 
 	// .setAlarm_torque( new BigDecimal(getShort(msg[13], msg[14])&0xFFFF) );
-	torque := binary.BigEndian.Uint16(msg[13:])
+	setting.torque = binary.BigEndian.Uint16(msg[11:])
 
 	// .setAlarm_wind_speed( new BigDecimal(getShort(msg[15], msg[16])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	windSpeed := binary.BigEndian.Uint16(msg[15:])
+	setting.windSpeed = binary.BigEndian.Uint16(msg[13:])
 
 	// .setAlarm_tilt( new BigDecimal(getShort(msg[17], msg[18])&0xFFFF) );
-	alarmTilt := binary.BigEndian.Uint16(msg[17:])
+	setting.alarmTilt = binary.BigEndian.Uint16(msg[15:])
 	
 	// .setWarning_horizontal_distance( new BigDecimal(getShort(msg[19], msg[20])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	warningHorizontalDistance := binary.BigEndian.Uint16(msg[19:])
+	setting.warningHorizontalDistance = binary.BigEndian.Uint16(msg[17:])
 	
 	// .setWarning_perpendicular_distance( new BigDecimal(getShort(msg[21], msg[22])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	warningPerpendicularDistance := binary.BigEndian.Uint16(msg[21:])
+	setting.warningPerpendicularDistance = binary.BigEndian.Uint16(msg[19:])
 
 	// .setWarning_weight_percentage( new BigDecimal(getShort(msg[23], msg[24])&0xFFFF) );
-	warningWeightPercentage := binary.BigEndian.Uint16(msg[23:])
+	setting.warningWeightPercentage = binary.BigEndian.Uint16(msg[21:])
 	
 	// .setWarning_torque( new BigDecimal(getShort(msg[25], msg[26])&0xFFFF) );
-	warningTorque := binary.BigEndian.Uint16(msg[25:])
+	setting.warningTorque = binary.BigEndian.Uint16(msg[23:])
 
 	// .setWarning_wind_speed( new BigDecimal(getShort(msg[27], msg[28])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );
-	warningWindSpeed := binary.BigEndian.Uint16(msg[27:])
+	setting.warningWindSpeed = binary.BigEndian.Uint16(msg[25:])
 	
 	// .setWarning_tilt( new BigDecimal(getShort(msg[29], msg[30])&0xFFFF) );
-	warningTilt := binary.BigEndian.Uint16(msg[29:])
+	setting.warningTilt = binary.BigEndian.Uint16(msg[27:])
 
-	alramSetting()
+	reportAlarmSetting(setting)
 	return nil
 }
 
-func alramSetting() {
+func reportAlarmSetting(setting AlarmSetting) {
+	log.Printf("alarm setting:%+v\n", setting)
 }
 
+type Threshold struct{
+	towerCraneId byte
+	deviceId string
+	range_limit_starting uint16
+	range_limit_terminal uint16
+	height_limit_starting uint16
+	height_limit_terminal_value uint16
+	rotation_limit_starting_value uint16
+	rotation_limit_terminal uint16
+}
 func thresholdSettingHandle(msg []byte) (resp []byte) {
+	if len(msg) < 17 {
+		log.Printf("incorrect message: %s\n", BytetoH(msg))
+		return nil
+	}
+	setting := Threshold{}
 	//塔吊编号
-	towerCraneId := msg[0];
+	setting.towerCraneId = msg[1];
 	//设备编号 
-	deviceId := msg[1:4]
+	setting.deviceId = BytetoH(msg[2:5])
 
 	// .setRange_limit_starting_value( new BigDecimal(getShort(msg[7], msg[8])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//幅度限位起点值
-	range_limit_starting := binary.BigEndian.Uint16(msg[7:])
+	setting.range_limit_starting = binary.BigEndian.Uint16(msg[5:])
 	
 	// .setRange_limit_terminal_value( new BigDecimal(getShort(msg[9], msg[10])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//幅度限位终点值
-	range_limit_terminal := binary.BigEndian.Uint16(msg[9:])
+	setting.range_limit_terminal = binary.BigEndian.Uint16(msg[7:])
 
 	// .setHeight_limit_starting_value( new BigDecimal(getShort(msg[11], msg[12])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//高度限位起点值
-	height_limit_starting := binary.BigEndian.Uint16(msg[11:])
+	setting.height_limit_starting = binary.BigEndian.Uint16(msg[9:])
 
 	// .setHeight_limit_terminal_value( new BigDecimal(getShort(msg[13], msg[14])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//高度限位终点值
-	height_limit_terminal_value := binary.BigEndian.Uint16(msg[13:])
+	setting.height_limit_terminal_value = binary.BigEndian.Uint16(msg[11:])
 	
 	// .setRotation_limit_starting_value( new BigDecimal(getShort(msg[15], msg[16])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//回转限位起点值
-	rotation_limit_starting_value := binary.BigEndian.Uint16(msg[15:])
+	setting.rotation_limit_starting_value = binary.BigEndian.Uint16(msg[13:])
 
 	// .setRotation_limit_terminal_value( new BigDecimal(getShort(msg[17], msg[18])&0xFFFF).setScale(1, BigDecimal.ROUND_UNNECESSARY).divide(BigDecimalSet.b10) );//回转限位终点值
 	//回转限位终点值
-	rotation_limit_terminal := binary.BigEndian.Uint16(msg[17:])
-	thresholdSetting()
+	setting.rotation_limit_terminal = binary.BigEndian.Uint16(msg[15:])
+	
+	reportThreshold(setting)
+	
 	return nil
 }
 
-func thresholdSetting()  {
-
+func reportThreshold(setting Threshold)  {
+	log.Printf("threshold setting:%+v\n", setting)
 }
