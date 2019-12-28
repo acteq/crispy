@@ -1,4 +1,4 @@
-module tower-crane
+module crispy
 
 go 1.13
 
