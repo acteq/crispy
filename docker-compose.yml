@@ -1,0 +1,6 @@
+version: '2' 
+services:
+  crispy:  
+    build: .  
+    ports:
+      - "21579:21579"
