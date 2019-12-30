@@ -1,6 +1,8 @@
 version: '2' 
 services:
   crispy:  
-    build: .  
+    build: .
+    restart: always
     ports:
       - "21579:21579"
+    
